@@ -1,0 +1,54 @@
+---
+title: "2019-person-EDA"
+author: "Albert Sun"
+date: "2/17/2022"
+output: html_document
+---
+
+```{r}
+install.packages("tidyverse")
+```
+
+```{r}
+library(dplyr)
+```
+
+
+```{r}
+df_raw <- read.csv('data/17-19survey-person.csv')
+glimpse(df_raw)
+```
+
+```{r}
+household <- read.csv('data/2017-2019-pr2-1-Household.csv')
+glimpse(household)
+```
+
+```{r}
+household%>%
+  select(prev_home_rgcname) 
+```
+```{r}
+household%>%
+  select(final_home_rgcnum) 
+
+```
+
+
+```{r}
+# queries for suburbanised people
+
+household %>%
+  filter(sample_county == 'King') %>%
+  filter(prev_home_wa == 'Yes, previous home was in Washington')
+```
+
+
+```{r}
+household %>%
+  group_by(brands) %>%
+  summarise(cnt = n()) %>%
+  mutate(freq = round(cnt / sum(cnt), 3)) %>% 
+  arrange(desc(freq))
+```
+
