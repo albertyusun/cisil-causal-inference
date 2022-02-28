@@ -1,0 +1,69 @@
+---
+title: "ACS-EDA"
+author: "Albert Sun"
+date: "2/22/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load packages, include=FALSE}
+library(tidyverse)
+```
+
+1. **Cleaning**: 
+
+This was the original dataset that we were given. As you can see, the columns were not readable, so we had to use the mappings in another file they gave to give the columns understandable names. 
+
+Raw Data: 
+
+```{r, include=FALSE}
+acs_raw <- read_csv('../../../data/King_County_ACS_2019_tract.csv')
+```
+
+```{r}
+head(acs_raw)
+```
+
+```{r read data, include = FALSE}
+acs <- read_csv('../../../data/CLEAN_King_County_ACS_2019_tract.csv')
+```
+
+Cleaned Data: 
+
+```{r}
+head(acs)
+```
+
+2. **Possible Visualizations** - The data is split on units of Census Tracts, which each have a unique geoid of STATE+COUNTY+TRACT, 
+2+3+6=11. We can use geoid to plot these variables on a map. 
+
+Possible exploratory heatmap variables based on mappable `geoid` or `census_tract`: 
+
+1. Number of people: `estimate_total`
+
+2. % black: `estimate_total_africanamerican / estimate_total`
+
+3. % white: `estimate_total_white / estimate_total`
+
+4. Number of people with income above 200% federal poverty level: `less_than_10000 + 10000_to_14999 + 15000_to_19999 + 20000_to_24999`
+
+5. % People with income above 200% federal poverty level: `(less_than_10000 + 10000_to_14999 + 15000_to_19999 + 20000_to_24999) / estimate_total`
+
+6. Inequality: `gini_index`
+
+7. age: `median_age_total`
+
+The federal poverty level income in 2021 was 12,880. Thus, in order for an individual to qualify for the half-price ORCA LIFT card experiment, they must have income less than 200% the federal poverty level, which means that they must have less than $25760. Thus, we can find the number of people that qualify for these subsidies as the sum of the less_than_10000, 10000_to_14999, 15000_to_19999, 20000_to_24999 columns. 
+
+Questions: 
+
+1. What other variables/visualizations might be interesting?
+
+Column Names:
+
+```{r}
+colnames(acs)
+```
