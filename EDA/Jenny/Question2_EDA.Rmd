@@ -1,0 +1,214 @@
+---
+title: "Question2_EDA"
+author: "Jenny Yijian Huang"
+date: "2/22/2022"
+output: html_document
+---
+
+
+# Reminder: Add file to Github.
+
+```{r}
+library(readr)
+LIFT_registry <- read_csv("~/Documents/CS - ML/LIFT_registry.csv")
+# View(LIFT_registry)
+```
+
+```{r}
+LIFT_boardings <- read_csv("~/Documents/CS - ML/LIFT_boardings.csv")
+LIFT_sales <- read_csv("~/Documents/CS - ML/LIFT_sales.csv")
+```
+Checking balance in the RCT:
+
+# Divide data into treatment groups
+
+```{r}
+LIFT_registry
+```
+
+initial load = 10, public health (0), some people declined to participate in the study.
+
+how to map census tract to FIPS?
+
+```{r}
+LIFT_registry %>% 
+  select(Study_Card) %>% 
+  unique()
+```
+
+# Subsidized Annual Pass: given 1 year free.
+
+```{r}
+LIFT_registry %>% 
+  filter(Study_Card == "Subsidized Annual Pass") # after Oct. 2020
+
+LIFT_registry %>% 
+  filter(Study_Card == "Phase1 Treatment") # late March - July 2019
+
+LIFT_registry %>% 
+  filter(Study_Card == "Phase2 Treatment") # dec - March 2020
+```
+# Join LIFT_registry with LIFT_sales
+```{r}
+LIFT_registry %>% 
+  filter(Study_Card == "Phase1 Treatment")
+
+registry_sales <- merge(x = LIFT_registry, y = LIFT_sales, by = "card_id", all = TRUE)
+```
+
+```{r}
+registry_sales %>% 
+  filter(Initial_Load == "Passport") %>% 
+  summarize(avg_Amt = mean(Amount))
+```
+Phase 1: March-July, 2019
+Phase 2: Dec 2019 - March, 2020
+
+```{r}
+registry_sales %>% 
+  filter(Initial_Load %in% c(NA, 10, 15, 20, 30, 50)) %>% 
+  
+  select(Amount) %>% 
+  mutate(avg_Amt = mean(Amount))
+```
+
+
+```{r}
+LIFT_registry %>% 
+  group_by(`Initial Load`) %>% 
+  count()
+```
+Treated: 822
+
+
+```{r}
+LIFT_registry %>% 
+  ggplot(., mapping=aes(x = `Initial Load`)) +
+  geom_bar(fill="dark green") +
+  theme_bw() +
+  labs(title = "Treatment Groups")
+```
+
+# See whether the covariates in all treatment groups are balanced.
+
+```{r}
+LIFT_registry %>% 
+  filter(`Study Card` %in% c('Phase1 Treatment', "Phase2 Treatment")) %>% 
+  ggplot(., mapping=aes(x = `Study Card`)) +
+  geom_bar() +
+  theme_bw()
+```
+# Divide the dataset into treatments
+```{r}
+load_ten <- LIFT_registry %>% 
+  filter(`Initial Load` == 10)
+load_fifteen <- LIFT_registry %>% 
+  filter(`Initial Load` == 15)
+load_twenty <- LIFT_registry %>% 
+  filter(`Initial Load` == 20)
+load_thirty <- LIFT_registry %>% 
+  filter(`Initial Load` == 30)
+load_fifty <- LIFT_registry %>% 
+  filter(`Initial Load` == 50)
+Passport_one <- LIFT_registry %>% 
+  filter(`Study Card` == 'Phase1 Treatment')
+Passport_two <- LIFT_registry %>% 
+  filter(`Study Card` == 'Phase2 Treatment')
+control <- LIFT_registry %>% 
+  filter(is.na(`Initial Load`) & is.na(`Study Card`))
+```
+
+```{r}
+LIFT_registry <- LIFT_registry %>% 
+  mutate(Initial_Load = `Initial Load`) %>% 
+  mutate(Study_Card = `Study Card`)
+```
+
+
+# Distribution of languages spoken
+```{r}
+LIFT_registry %>% 
+  filter(Initial_Load %in% c(NA, 10, 15, 20, 30, 50)) %>% 
+  ggplot(data = ., aes(x = LanguageSpoken)) +
+  geom_bar(aes(y=..count../sum(..count..)), fill="dark blue")+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+
+
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = LanguageSpoken)) +
+  geom_bar(aes(y=..count../sum(..count..)), fill="dark blue")+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Higher proportions of Amharic and Chinese found in the control. Proportion of English is around the same.
+
+# Distribution of Race.
+
+```{r}
+LIFT_registry %>%
+  filter(Initial_Load %in% c(NA,10,15,20,30,50)) %>% 
+  ggplot(., aes(x = RaceDesc)) +
+  geom_bar(aes(y=..count../sum(..count..)))+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = RaceDesc)) +
+  geom_bar(aes(y=..count../sum(..count..)))+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Control: Larger proportion of Asians and Hispanics.
+Treatment: Larger proportion of African Americans.
+
+# Distribution of Age.
+
+```{r}
+LIFT_registry %>%
+  filter(Initial_Load %in% c(NA,10,15,20,30,50)) %>% 
+  ggplot(., aes(x = Age)) +
+  geom_histogram(fill="dark green") +
+  theme_bw()
+
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = Age)) +
+  geom_histogram(fill = "dark green") +
+  theme_bw()
+```
+A high proportion of 20 year olds were given the passport data.
+
+
+
+
+# ATE Estimation: 
+
+http://www.degeneratestate.org/posts/2018/Mar/24/causal-inference-with-python-part-1-potential-outcomes/
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

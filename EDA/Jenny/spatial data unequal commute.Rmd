@@ -1,0 +1,209 @@
+---
+title: "unequal commute eda"
+author: "Jenny Yijian Huang"
+date: "2/15/2022"
+output: html_document
+---
+
+
+```{r}
+# CRAN packages
+install.packages(c("tidyverse", "sf", "rgdal", "tmap"))
+
+# GitHub packages
+library(devtools)
+```
+```{r}
+install_github("walkerke/tigris")
+install_github("hrecht/censusapi")
+install_github("tidyverse/ggplot2")
+```
+
+```{r}
+library(tigris)
+library(sf)
+```
+tigris: https://walker-data.com/tigris-webinar/#2
+```{r}
+# Washington by GEOID
+wa <- counties("WA")
+wa20 <- counties("WA", cb = TRUE, resolution = "20m")
+plot(wa)
+plot(wa20, border = "red", add = TRUE)
+```
+```{r}
+glimpse(job_access_gap)
+```
+
+sf: https://www2.stat.duke.edu/courses/Spring20/sta199.001/slides/lec-slides/lec-04a-spatial.html#9
+
+
+```{r}
+# Let's read the jeoJson file that is stored on the web with the geojsonio library:
+install.packages("geojsonio")
+library(geojsonio)
+```
+
+```{r}
+wash <- geojson_read("https://urban-data-catalog.s3.amazonaws.com/drupal-root-live/2021/04/15/job_access_gap.geojson", what = "sp")
+```
+
+```{r}
+# select seattle
+# wash@data$mystate = substr( wash@data$code, 1, 2)
+seattle = wash[ wash@data$MSA == "Seattle" , ]
+```
+
+```{r}
+# plot seattle 
+
+# 'fortify' the data to get a dataframe format required by ggplot2
+library(broom)
+spdf_fortified <- tidy(seattle)
+
+# Plot it
+library(ggplot2)
+ggplot() +
+  geom_polygon(data = seattle, aes( x = long, y = lat, group = group), fill="light blue", color="white") +
+  theme_void() +
+  coord_map()
+```
+
+
+1. Overall Job Access
+
+```{r}
+seattle@data$OverallJobAccess <- as.numeric(seattle@data$OverallJobAccess)
+```
+
+# Plot the "Normalized measure of overall access to jobs for low wage job seekers"
+```{r fig.height = 7, fig.width = 7}
+# Use the cartography library to do the choropleth map
+# install.packages("cartography")
+library(cartography)
+choroLayer(spdf = seattle, df = seattle@data, var = "OverallJobAccess")
+title("Overall job access")
+```
+We then standardize Ag so the maximum is 1 and the minimum is 0 and each value within it is
+proportional to the position relative to the maximum and minimum.
+
+- The block is Vashon Island to orient this map with google maps (https://www.google.com/maps/@47.421051,-121.6942323,9z)
+
+- Unequal commute map: https://www.urban.org/features/unequal-commute
+
+
+Jobs are concentrated along the inner city routes as well as in the south east. Large companies concentrate along the line stretching vertically across the inner city.
+What is located in the SouthEast?
+
+```{r}
+seattle2@data$OverallJobAccess <- as.numeric(seattle2@data$OverallJobAccess)
+```
+
+```{r fig.height = 7, fig.width = 7}
+# Use the cartography library to do the choropleth map
+# install.packages("cartography")
+library(cartography)
+choroLayer(spdf = seattle2, df = seattle2@data, var = "OverallJobAccess")
+title("Overall job access")
+```
+
+```{r}
+seattle3 = seattle[ seattle@data$OverallJobAccess > 2 | seattle@data$OverallJobAccess < 0, ]
+```
+
+```{r fig.height = 7, fig.width = 7}
+# Use the cartography library to do the choropleth map
+# install.packages("cartography")
+library(cartography)
+
+seattle3@data$OverallJobAccess <- as.numeric(seattle3@data$OverallJobAccess)
+
+choroLayer(spdf = seattle3, df = seattle3@data, var = "OverallJobAccess")
+title("Overall job access (high values)")
+```
+The values in the 30s and 40s seem to be water or national parks. 
+
+2. Job Access via Transit
+
+```{r}
+seattle@data$Access30Transit <- as.numeric(seattle@data$Access30Transit)
+
+# seattle@data$Access30Transit <- as.numeric(seattle@data$Access30Transit[seattle@data$Access30Transit > 0])
+
+# lines[lines$X > 400 & lines$Y=="YES", ]
+```
+
+
+```{r fig.height = 7, fig.width = 7}
+# Access30Transit: Higher values are better.
+choroLayer(spdf = seattle, df = seattle@data, var = "Access30Transit")
+title("Jobs accessible via transit (within 30 min)")
+```
+The transit systems in the inner city, the North East, and South East are the most accessible.
+
+```{r}
+seattle2 = seattle[ seattle@data$Access30Transit >=0 & seattle@data$Access30Transit <= 1 & seattle@data$OverallJobAccess >= 0 & seattle@data$OverallJobAccess <= 1, ]
+```
+
+```{r}
+seattle2@data$Access30Transit <- as.numeric(seattle2@data$Access30Transit)
+```
+
+```{r fig.height = 7, fig.width = 7}
+choroLayer(spdf = seattle2, df = seattle2@data, var = "Access30Transit")
+title("Jobs accessible via transit (within 30 min)")
+```
+
+
+3. Count of Low Wage Labor Force
+
+```{r}
+seattle@data$lowwagelaborforce <- as.numeric(seattle@data$lowwagelaborforce)
+```
+
+```{r fig.height = 7, fig.width = 7}
+choroLayer(spdf = seattle, df = seattle@data, var = "lowwagelaborforce")
+title("Low Wage Labor force (count)")
+```
+In Seattle, an influx of relatively high-income earners has led the gentrification of many historically low-income neighborhoods in the central city. Incumbent residents, especially low-income renters, have moved elsewhere in search of affordable housing, increasing typical commute times for low-income workers.
+
+Notice the patch in the North and South of the inner city.
+
+4. Spatial Mismatch (Spatial mismatch: Ratio: # jobs : # low wage job seekers normalized. Higher is worse.)
+
+
+```{r}
+seattle@data$spatialmismatch <- as.numeric(seattle@data$spatialmismatch)
+```
+
+```{r fig.height = 7, fig.width = 7}
+choroLayer(spdf = seattle, df = seattle@data, var = "spatialmismatch")
+title("Spatial Mistmatch: Darker Indicates More Mismatch")
+```
+The suburbs in the South and North face the worst spatial mismatch!
+
+
+Composition of geographic blocks by race?
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

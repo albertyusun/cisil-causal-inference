@@ -1,0 +1,172 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(readr)
+job_access_gap <- read_csv("~/Documents/CS - ML/job_access_gap.csv")
+# View(job_access_gap)
+
+library(readr)
+job_access_gap_dict <- read_csv("~/Documents/CS - ML/job_access_gap_dict.csv")
+View(job_access_gap_dict)
+```
+
+```{r}
+colnames(job_access_gap)
+```
+
+```{r}
+job_access_gap_dict %>% 
+  select(definition)
+```
+```{r}
+nrow(job_access_gap)
+```
+
+
+```{r}
+job_access_gap %>% 
+  select(OverallJobAccess)
+```
+
+Why does there exist values outside [0,1]??
+```{r}
+job_access_gap %>% 
+  ggplot(., aes(x=OverallJobAccess)) + 
+  geom_histogram(fill="black") +
+  labs(title="Overall Job Access",
+       sub="Normalized measure of overall access to jobs for low wage job seekers",
+        x ="Job Access", y = "Count") +
+  theme_bw()
+```
+```{r}
+job_access_gap %>% 
+  filter(OverallJobAccess >= 1)
+```
+
+
+
+```{r}
+job_access_gap %>% 
+  filter(OverallJobAccess >= 0 & OverallJobAccess <= 1 ) %>% 
+  ggplot(., aes(x=OverallJobAccess)) + 
+  geom_histogram(binwidth = 0.02, fill="black") +
+  labs(title="Overall Job Access",
+       subtitle="Normalized measure of overall access to jobs for low wage job seekers",
+        x ="Job Access", y = "Count") +
+  theme_bw()
+```
+
+
+```{r}
+job_access_gap %>% 
+  summarize(Min_OverallJobAccess = min(OverallJobAccess, na.rm=TRUE),
+             Q1_OverallJobAccess = quantile(OverallJobAccess, .25, na.rm=TRUE),
+             Avg_OverallJobAccess = mean(OverallJobAccess, na.rm=TRUE), 
+             Q3_OverallJobAccess = quantile(OverallJobAccess, .75, na.rm=TRUE),
+             Max_OverallJobAccess = max(OverallJobAccess, na.rm=TRUE)
+             )
+```
+
+Why are there values above 1?
+```{r}
+job_access_gap %>% 
+  filter(OverallJobAccess >= 10)
+```
+
+
+
+The mean job access score is around 0.6.
+```{r}
+job_access_gap %>% 
+  filter(OverallJobAccess >= 0 & OverallJobAccess <= 1 ) %>% 
+  summarize(Min_OverallJobAccess = min(OverallJobAccess),
+             Q1_OverallJobAccess = quantile(OverallJobAccess, .25),
+             Avg_OverallJobAccess = mean(OverallJobAccess, na.rm=TRUE), 
+             Q3_OverallJobAccess = quantile(OverallJobAccess, .75),
+             Max_OverallJobAccess = max(OverallJobAccess)
+             )
+```
+
+```{r}
+job_access_gap %>% 
+  select(lowwagelaborforce)
+```
+
+
+```{r}
+job_access_gap %>% 
+  ggplot(., aes(x=lowwagelaborforce)) + 
+  geom_histogram(fill="black") +
+  labs(title="Low Wage Labor Force",
+       subtitle="Count of low wage labor force",
+        x ="Count of low wage labor force in a block", y = "Count") +
+  theme_bw()
+```
+On avg, there are around 260 low wage laborers in a block. However, there are negative values too.
+```{r}
+job_access_gap %>% 
+  summarize(Min_laborforce = min(lowwagelaborforce, na.rm=TRUE),
+             Q1_laborforce = quantile(lowwagelaborforce, .25, na.rm=TRUE),
+             Avg_laborforce = mean(lowwagelaborforce, na.rm=TRUE), 
+             Q3_laborforce = quantile(lowwagelaborforce, .75, na.rm=TRUE),
+             Max_laborforce = max(lowwagelaborforce, na.rm=TRUE)
+             )
+
+job_access_gap %>% 
+  filter(lowwagelaborforce>=0) %>% 
+  summarize(Min_laborforce = min(lowwagelaborforce, na.rm=TRUE),
+             Q1_laborforce = quantile(lowwagelaborforce, .25, na.rm=TRUE),
+             Avg_laborforce = mean(lowwagelaborforce, na.rm=TRUE), 
+             Q3_laborforce = quantile(lowwagelaborforce, .75, na.rm=TRUE),
+             Max_laborforce = max(lowwagelaborforce, na.rm=TRUE)
+             )
+```
+
+```{r}
+job_access_gap %>%
+  ggplot(., aes(x=Access30Transit)) + 
+  geom_histogram(binwidth = 0.02, fill="black") +
+  labs(title="Access30Transit",
+       subtitle="Normalized measure of jobs accessible within 30 minutes via public transit at peak hours",
+        x ="Job Access", y = "Count") +
+  theme_bw()
+```
+
+Why are there values of normalized scores outside 0-1?
+```{r}
+job_access_gap %>%
+  filter(Access30Transit >= 0 & Access30Transit <= 1 ) %>% 
+  ggplot(., aes(x=Access30Transit)) + 
+  geom_histogram(binwidth = 0.02, fill="black") +
+  labs(title="Access30Transit",
+       subtitle="Normalized measure of jobs accessible within 30 minutes via public transit at peak hours",
+        x ="jobs accessible score (30 min transit)", y = "Count") +
+  theme_bw() 
+```
+There is a long right tail in this distribution; I wonder which cities have really good access.
+The mean job access score is around 0.6.
+```{r}
+job_access_gap %>% 
+  filter(Access30Transit >= 0 & Access30Transit <= 1 ) %>% 
+  summarize(Min_Access30Transit = min(Access30Transit),
+             Q1_Access30Transit = quantile(Access30Transit, .25),
+             Avg_Access30Transit = mean(Access30Transit, na.rm=TRUE), 
+             Q3_Access30Transit = quantile(Access30Transit, .75),
+             Max_Access30Transit = max(Access30Transit)
+             )
+```
+
+The sample size for Seattle is the biggest.
+```{r}
+job_access_gap %>% 
+  filter(spatialmismatch > 0 & spatialmismatch <= 1 ) %>% 
+  ggplot(., aes(x=spatialmismatch))+
+  geom_histogram(binwidth = 0.01, color="red")+
+  theme_bw() +
+  facet_wrap(~MSA)
+```
+

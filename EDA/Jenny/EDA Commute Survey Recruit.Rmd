@@ -1,0 +1,298 @@
+---
+title: "Commute Survey Recruit"
+output: html_notebook
+---
+
+
+```{r}
+library(readr)
+library(tidyverse)
+Household <- read_csv("HTS/2017-2019-pr2-1-Household.csv")
+Person <- read_csv("2017-2019-pr2-2-Person.csv")
+Trips <- read_csv("Household Travel Survey King County /2017-2019-pr2-5-Trip.csv")
+Trips
+```
+
+# When are people commuting in general?
+```{r}
+colnames(Trips)
+
+library(lubridate)
+smptime <- Trips$depart_time_hhmm[1]
+
+period_to_seconds(hms(smptime))
+#[1] 113.91
+
+Trips <- Trips %>% 
+  mutate(depart_time_num = period_to_seconds(hms(depart_time_hhmm))/3600) %>% 
+  mutate(arrival_time_num = period_to_seconds(hms(arrival_time_hhmm))/3600)
+```
+
+```{r}
+colnames(Trips)
+Trips$mode_simple
+```
+
+```{r}
+Trips %>% 
+  ggplot(., aes(x=depart_time_num)) + 
+  geom_histogram(binwidth = 1, fill="#69b3a2") +
+  labs(title="Time of Departure",
+        x ="Hour", y = "Count") +
+  theme_bw()
+```
+
+
+# When are people taking public transportation?
+```{r}
+Trips %>% 
+  filter(mode_simple =="Transit") %>% 
+  ggplot(., aes(x=depart_time_num)) + 
+  geom_histogram(binwidth = 1, fill="#69b3a2") +
+  labs(title="Time of Departure for Transit Users",
+        x ="Hour", y = "Count") +
+  theme_bw()
+```
+# When are people driving?
+```{r}
+Trips %>% 
+  filter(mode_simple =="Drive") %>% 
+  ggplot(., aes(x=depart_time_num)) + 
+  geom_histogram(binwidth = 1, fill="#69b3a2") +
+  labs(title="Time of Departure for Driving",
+        x ="Hour", y = "Count") +
+  theme_bw()
+```
+
+
+```{r}
+colnames(Household)
+```
+
+```{r}
+match_house <- Household %>% 
+  select(hhid, hhincome_detailed, vehicle_count, car_share)
+view(match_house)
+```
+
+
+```{r}
+ggplot(data = Household, aes(x = hhincome_detailed)) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+ggplot(data = Household, aes(x = vehicle_count)) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+Household %>% 
+  mutate(hhincome_broad = fct_reorder(hhincome_broad, desc(hhincome_broad))) %>%
+  filter(hhincome_broad %in% c("Under $25,000", "$75,000-$99,999", "$100,000 or more")) %>%
+  filter(vehicle_count %in% c('0 (no vehicles)', 1, 2, 3)) %>% 
+  ggplot(data = ., aes(x = vehicle_count, fill = hhincome_broad)) +
+    geom_bar(position = "dodge")+ theme_bw()+ theme(axis.text.x = element_text(angle = 90))+labs(title="Vehicle Count by Income")
+```
+
+
+```{r}
+colnames(Person)
+```
+
+```{r}
+match_person <- Person %>% 
+  select(person_id, education, commute_mode, commute_freq, employment, workplace, race_category,mode_freq_1, mode_freq_5, tran_pass_1, tran_pass_2, tran_pass_2)
+view(match_person)
+```
+
+# Travel Habits
+```{r}
+cash_plot <- ggplot(data = Person, aes(x = tran_pass_1)) +
+    geom_bar(fill="Orange") + theme(axis.text.x = element_text(angle = 90)) + labs(title="Cash") # cash
+
+ticket_plot <- ggplot(data = Person, aes(x = tran_pass_2)) +
+    geom_bar(fill="Orange") + theme(axis.text.x = element_text(angle = 90)) + labs(title="Tickets")# Tickets
+
+orca_plot <- ggplot(data = Person, aes(x = tran_pass_3)) +
+    geom_bar(fill="Orange") + theme(axis.text.x = element_text(angle = 90)) + labs(title="Orca") # Orca
+
+plot_grid(cash_plot, ticket_plot, orca_plot, labels = "AUTO")
+```
+
+
+```{r}
+ggplot(data = Person, aes(x = employment)) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+ggplot(data = Person, aes(x = workplace)) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+Person %>% 
+  filter(race_category %in% c("White Only", "Hispanic", "Asian", "African American")) %>% 
+  ggplot(., aes(x=commute_freq))+
+  geom_bar()+
+  theme_bw()+
+  facet_wrap(~race_category)+ theme(axis.text.x = element_text(angle = 90))
+```
+# Proportion of African American and Hispanic who ride public transit is higher than White Only.
+```{r}
+Person %>% 
+  filter(race_category %in% c("White Only", "Hispanic", "Asian", "African American")) %>% 
+  filter(commute_mode %in% c("Bus (public transit)", "Drive alone")) %>% 
+ggplot(., aes(x=commute_mode))+
+  geom_bar()+
+  theme_bw()+
+  facet_wrap(~race_category)+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+# Hispanic
+```{r}
+Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)", "Drive alone")) %>% 
+ggplot(., aes(x=commute_mode))+
+  geom_bar()+
+  theme_bw()+
+  facet_wrap(~race_hisp)+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+# AfricanAmerican
+```{r}
+Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)", "Drive alone")) %>% 
+ggplot(., aes(x=commute_mode))+
+  geom_bar()+
+  theme_bw()+
+  facet_wrap(~race_afam)+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+#Education
+```{r}
+Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)", "Drive alone")) %>% 
+ggplot(., aes(x=commute_mode))+
+  geom_bar(fill="orange")+
+  theme_bw()+
+  facet_wrap(~education)+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+```{r}
+Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)", "Carpool ONLY with other household members", "Drive alone", "Walk, jog, or wheelchair")) %>% 
+ggplot(data = ., aes(x = commute_mode)) +
+    geom_bar(fill="orange") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.45))
+```
+
+```{r}
+Person %>% 
+ggplot(data = ., aes(x = commute_freq)) +
+    geom_bar(fill="orange") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.45))
+```
+
+```{r}
+library(cowplot)
+gr_race1 <- Person %>% 
+  filter(race_category %in% c("White Only", "Hispanic", "Asian", "African American")) %>% 
+ggplot(data = ., aes(x = race_category)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.45))+
+  labs(title = "Race Category",  subtitle = "All Survey Participants")
+
+gr_race2 <- Person %>% 
+  filter(race_category %in% c("White Only", "Hispanic", "Asian", "African American")) %>% 
+  filter(commute_mode %in% c("Bus (public transit)")) %>% 
+  ggplot(data = ., aes(x = race_category)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.45))+
+  labs(title = "Race Category", subtitle = "People who ride public transportation")
+
+plot_grid(gr_race1, gr_race2, labels = "AUTO")
+```
+A higher percentage of Asians and Hispanics ride compared to white.
+
+
+
+
+```{r}
+Person$employment <- recode_factor(Person$employment, "Employed full time (35+ hours/week, paid)" = "full time", "Employed part time (fewer than 35 hours/week, paid)" = "part time"
+)
+```
+
+PT by employment
+```{r}
+library(cowplot)
+emp1 <- Person %>% 
+ggplot(data = ., aes(x = employment)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))+
+  labs(title = "Employment",  subtitle = "All Survey Participants")
+
+emp2 <- Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)")) %>% 
+  ggplot(data = ., aes(x = employment)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))+
+  labs(title = "Employment", subtitle = "People who ride public transportation")
+
+plot_grid(emp1, emp2, labels = "AUTO")
+```
+```{r}
+Person$workplace <- recode_factor(Person$workplace, "At home (telecommute or self-employed with home office)" = "Home", "Usually the same location (outside home)" = "Same Location Outside", "Drives for a living (e.g., bus driver, salesperson)" = "Drives for Living", "Workplace regularly varies (different offices or jobsites)" = "Regularly Varies"
+)
+```
+
+PT by workplace
+```{r}
+library(cowplot)
+emp1 <- Person %>% 
+ggplot(data = ., aes(x = workplace)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))+
+  labs(title = "Work",  subtitle = "All Survey Participants")
+
+emp2 <- Person %>% 
+  filter(commute_mode %in% c("Bus (public transit)")) %>% 
+  ggplot(data = ., aes(x = workplace)) +
+    geom_bar(fill="blue") +
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))+
+  labs(title = "Work", subtitle = "People who ride public transportation")
+
+plot_grid(emp1, emp2, labels = "AUTO")
+```
+
+# General Bar Plots: https://mq-software-carpentry.github.io/r-ggplot-extension/02-categorical-data/index.html
+# Reorder Variables: https://www.r-graph-gallery.com/267-reorder-a-variable-in-ggplot2.html
+# Rotating axis labels: https://stackoverflow.com/questions/1330989/rotating-and-spacing-axis-labels-in-ggplot2
+
+```{r}
+Household %>% 
+  select(final_home_rgcnum) %>% 
+  unique() # some inner city such as Capitol Hill, Northgate
+
+Household %>% 
+  select(final_home_uvnum) %>% 
+  unique()
+```
+
+
