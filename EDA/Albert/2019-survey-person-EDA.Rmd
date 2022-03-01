@@ -61,6 +61,13 @@ This leads to the question - how do I categorize tracts into larger groups?
 
 
 ```{r}
+household %>%
+  select(prev_home_wa, hhid, final_home_tract, prev_home_tract, final_home_rgcnum, final_home_uvnum, prev_home_rgcname)
+```
+
+It seems as if the census tracts are only listed if the person lived in washington before; i.e. prev_home_wa == "Yes, previous home was in Washington". Thus, I think it is ok to filter out for answering yes as I did in the code chunk before this one. 
+
+```{r}
 stay_in_washington %>%
   select(hhid, final_home_tract, prev_home_tract, final_home_rgcnum, final_home_uvnum, prev_home_rgcname)
 ```
@@ -98,13 +105,54 @@ Top locations are:
 In order to track suburbanisation in this dataset, I think we would need a systematic way to categorize whether a specific census tract is suburban or not. Having a dataset that has a list of all the census tracts and what type of locations they describe would be a good start to doing this. 
 
 ```{r joining the tracts}
-home_tracts <- full_join(df_prev_home, df_final_home, 
+df_home_tracts_2019 <- full_join(df_prev_home, df_final_home, 
                          by=c('prev_home_tract' = 'final_home_tract')) %>%
   rename(tract = prev_home_tract,
-         num_prev = n.x,
-         num_final = n.y)
+         num_prev_2019 = n.x,
+         num_final_2019 = n.y) %>%
+  mutate(tract = as.character(tract))
 
-home_tracts
+df_home_tracts_2019
 
-write_csv(home_tracts, "../../../data/survey-household-tracts-moving.csv")
+write_csv(df_home_tracts_2019, "../../../data/survey-household-tracts-moving.csv")
+```
+
+We just did that for the 2019 survey. Now, let's do it for the 2017 survey. 
+
+```{r do the same t}
+library(readxl)
+library(janitor)
+
+df_stay_in_washington_2017 <- read_excel('../../../data/2017-pr2-1-household.xlsx') %>%
+  row_to_names(row_number = 1) %>%
+  select(prev_home_wa, prev_home_tract, final_home_tract) %>%
+  filter(prev_home_wa == 1)
+```
+
+```{r}
+df_stay_in_washington_2017
+
+df_prev_home_2017 <- df_stay_in_washington_2017 %>%
+  group_by(prev_home_tract) %>%
+  summarise(n = n()) 
+
+df_final_home_2017 <- df_stay_in_washington_2017 %>%
+  group_by(final_home_tract) %>%
+  summarise(n = n())
+
+df_home_tracts_2017 <- full_join(df_prev_home_2017, df_final_home_2017, 
+                         by=c('prev_home_tract' = 'final_home_tract')) %>%
+  rename(tract = prev_home_tract,
+         num_prev_2017 = n.x,
+         num_final_2017 = n.y)
+
+df_home_tracts_2017
+```
+
+```{r join 2017 and 2019 tracts and output csv}
+df_home_tracts_total <- full_join(df_home_tracts_2017, df_home_tracts_2019, 
+                         by='tract') 
+df_home_tracts_total
+
+write_csv(df_home_tracts_total, "../../../data/survey-household-tracts-moving.csv")
 ```
