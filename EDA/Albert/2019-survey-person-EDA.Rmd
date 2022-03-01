@@ -7,9 +7,10 @@ output: html_document
 
 ```{r include=FALSE}
 library(tidyverse)
+library(readr)
 ```
 
-```{r}
+```{r include=FALSE}
 df_raw <- read_csv('../../../data/17-19survey-person.csv')
 glimpse(df_raw)
 ```
@@ -65,11 +66,11 @@ stay_in_washington %>%
 ```
 
 ```{r}
-stay_in_washington %>%
+df_prev_home <- stay_in_washington %>%
   group_by(prev_home_tract) %>%
-  summarise(n = n()) %>%
-  arrange(-n) %>%
-  top_n(10)
+  summarise(n = n()) 
+
+df_prev_home
 ```
 
 Top locations are: 
@@ -80,11 +81,11 @@ Top locations are:
 - Between University District/Wallingford
 
 ```{r}
-stay_in_washington %>%
+df_final_home <- stay_in_washington %>%
   group_by(final_home_tract) %>%
-  summarise(n = n()) %>%
-  arrange(-n) %>%
-  top_n(10)
+  summarise(n = n())
+
+df_final_home
 ```
 
 Top locations are: 
@@ -96,4 +97,14 @@ Top locations are:
 
 In order to track suburbanisation in this dataset, I think we would need a systematic way to categorize whether a specific census tract is suburban or not. Having a dataset that has a list of all the census tracts and what type of locations they describe would be a good start to doing this. 
 
+```{r joining the tracts}
+home_tracts <- full_join(df_prev_home, df_final_home, 
+                         by=c('prev_home_tract' = 'final_home_tract')) %>%
+  rename(tract = prev_home_tract,
+         num_prev = n.x,
+         num_final = n.y)
 
+home_tracts
+
+write_csv(home_tracts, "../../../data/survey-household-tracts-moving.csv")
+```
