@@ -5,22 +5,17 @@ date: "2/17/2022"
 output: html_document
 ---
 
-```{r}
-install.packages("tidyverse")
+```{r include=FALSE}
+library(tidyverse)
 ```
 
 ```{r}
-library(dplyr)
-```
-
-
-```{r}
-df_raw <- read.csv('data/17-19survey-person.csv')
+df_raw <- read_csv('../../../data/17-19survey-person.csv')
 glimpse(df_raw)
 ```
 
 ```{r}
-household <- read.csv('data/2017-2019-pr2-1-Household.csv')
+household <- read_csv('../../../data/2017-2019-pr2-1-Household.csv')
 glimpse(household)
 ```
 
@@ -28,27 +23,77 @@ glimpse(household)
 household%>%
   select(prev_home_rgcname) 
 ```
+
 ```{r}
 household%>%
   select(final_home_rgcnum) 
 
 ```
 
-
 ```{r}
 # queries for suburbanised people
 
-household %>%
+stay_in_washington <- household %>%
   filter(sample_county == 'King') %>%
   filter(prev_home_wa == 'Yes, previous home was in Washington')
+
+stay_in_washington
 ```
+
+Here are data columns that are particularly interesting: 
+- `final_home_tract` - census tract of where the final home is located
+- `prev_home_tract` - census tract of where the first home is located
+
+The breakdown for FIPS is 
+- 2 - State
+- 3 - County
+- 6 - Tract
+- 1 - Block Group
+
+This website allows you to see the boundaries of specific census tracts: 
+
+https://www.policymap.com/newmaps#/
+
+This leads to the question - how do I categorize tracts into larger groups? 
+
+- GIS of all census tracts in King County: https://www5.kingcounty.gov/sdc/Metadata.aspx?Layer=tracts10_shore
 
 
 ```{r}
-household %>%
-  group_by(brands) %>%
-  summarise(cnt = n()) %>%
-  mutate(freq = round(cnt / sum(cnt), 3)) %>% 
-  arrange(desc(freq))
+stay_in_washington %>%
+  select(hhid, final_home_tract, prev_home_tract, final_home_rgcnum, final_home_uvnum, prev_home_rgcname)
 ```
+
+```{r}
+stay_in_washington %>%
+  group_by(prev_home_tract) %>%
+  summarise(n = n()) %>%
+  arrange(-n) %>%
+  top_n(10)
+```
+
+Top locations are: 
+- Redmond, 
+- Seattle West Edge/Central Business District, 
+- Seattle Bell Town, 
+- Capitol Hill, 
+- Between University District/Wallingford
+
+```{r}
+stay_in_washington %>%
+  group_by(final_home_tract) %>%
+  summarise(n = n()) %>%
+  arrange(-n) %>%
+  top_n(10)
+```
+
+Top locations are: 
+- Redmond, 
+- Northgate (Northern Seattle)
+- Between University District/Wallingford
+- Southlake Union (near airport)
+- Capitol Hill
+
+In order to track suburbanisation in this dataset, I think we would need a systematic way to categorize whether a specific census tract is suburban or not. Having a dataset that has a list of all the census tracts and what type of locations they describe would be a good start to doing this. 
+
 
