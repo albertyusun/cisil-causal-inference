@@ -3,7 +3,498 @@ title: "Fare Subsidies Question 2 EDA"
 author: "Jenny Yijian Huang"
 date: "2/28/2022"
 output: html_document
----
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+The Gist:
+
+Treatment: Passport
+Control: $15
+Response: Does it impact their ridership after the experiment ended? Do they continue to load value on their LIFT card? Do they re-enroll in ORCA LIFT?
+
+Individuals who got the passport wouldn’t need to load value during the time the passport was active, and we are interested in knowing whether, for example, have a few months’ passport vs. $15 in value leads people to load value **in the future.**
+
+
+```{r}
+library(readr)
+library(tidyr)
+library(tidyverse)
+```
+
+```{r}
+LIFT_registry <- read_csv("Data/LIFT_registry.csv")
+LIFT_boardings <- read_csv("Data/LIFT_registry.csv")
+LIFT_sales <- read_csv("Data/LIFT_registry.csv")
+```
+
+```{r}
+LIFT_registry <- LIFT_registry %>%
+  mutate(Study_Card = `Study Card`) %>% 
+  mutate(Initial_Load = `Initial Load`)
+```
+
+# Filter for individuals in Phase 1. Measure their ridership after Phase 1 ended. loadings too.
+
+Phase 1: March-July, 2019
+Phase 2: Dec 2019 - March, 2020
+
+```{r}
+registry_sales <- merge(x = LIFT_registry, y = LIFT_sales, by = "card_id", all = TRUE) # 599,825 rows.
+# q2_data <- merge(x = registry_sales, y = LIFT_boardings, by = "card_id", all = TRUE)
+```
+
+```{r}
+registry_sales %>% 
+  select(Study_Card) %>% 
+  unique()
+```
+```{r}
+# replace Study_Card NA values for ease of filtering later on.
+registry_sales <- mutate_at(registry_sales, c("Study_Card"), ~replace(., is.na(.), "None"))
+```
+
+phase1_people: eligible individuals who registered for a card during phase 1. (53,978 rows)
+```{r}
+phase1_people <- registry_sales %>% 
+  filter(Study_Card != "Subsidized Annual Pass") %>% 
+  filter(Age > 18) %>% 
+  filter(DateIssuedToCardHolder <= "2019-07-01" & DateIssuedToCardHolder > "2019-03-01")
+```
+
+```{r}
+phase1_people %>% 
+  count(Study_Card)
+```
+# A closer look at phase1_people
+```{r}
+phase1_people %>% 
+  count(RaceDesc)
+
+phase1_people %>% 
+  count(LanguageSpoken)
+
+phase1_people %>% 
+  count(Age)
+```
+```{r}
+p1t_language <- phase1_people %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  count(LanguageSpoken) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Passport")
+
+p1c_language <- phase1_people %>% 
+  filter(Study_Card == "None") %>% 
+  count(LanguageSpoken) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Control")
+
+p1_language <- bind_rows(p1t_language,p1c_language)
+```
+
+# Distribution of languages spoken
+```{r}
+p1_language %>% 
+  ggplot(data = ., aes(x = LanguageSpoken, y= freq, fill= treatment)) +
+  geom_bar(stat="identity", position = position_dodge())+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Higher proportions of Amharic and Chinese found in the control. Proportion of English is higher in the passport group.
+
+# Distribution of Race
+```{r}
+p1t_race <- phase1_people %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  count(RaceDesc) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Passport")
+
+p1c_race <- phase1_people %>% 
+  filter(Study_Card == "None") %>% 
+  count(RaceDesc) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Control")
+
+p1_race <- bind_rows(p1t_race, p1c_race)
+```
+
+```{r}
+p1_race %>% 
+  ggplot(data = ., aes(x = RaceDesc, y= freq, fill= treatment)) +
+  geom_bar(stat="identity", position = position_dodge())+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+A higher proportion of Black individuals got the treatment while a low proportion of Asians got the treatment.
+
+# Distribution of Registration Agency/Location
+```{r}
+p1t_agency <- phase1_people %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  count(CardIssuingAgency) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Passport")
+
+p1c_agency <- phase1_people %>% 
+  filter(Study_Card == "None") %>% 
+  count(CardIssuingAgency) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Control")
+
+p1_agency <- bind_rows(p1t_agency, p1c_agency)
+```
+
+```{r}
+p1_agency %>% 
+  ggplot(data = ., aes(x = CardIssuingAgency, y= freq, fill= treatment)) +
+  geom_bar(stat="identity", position = position_dodge())+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+# what if the NA values are people who did not qualify?
+# look at control individuals in these 3 offices. This may not be a good RCT. Agency is a big confounder.
+
+How many times did these people in phase 1 load after 2019-07-01?
+```{r}
+phase1_people %>% 
+  filter(week >= "2019-07-01")
+```
+Number of loadings for people in the treatment group
+```{r}
+phase1_people %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  drop_na(loadings) %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+Number of loadings for people in the control group
+```{r}
+phase1_people %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  drop_na(loadings) %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+
+ATE = E[Loading | Treated] - E[Loading | Control] = 1.275362	- 1.147144	= 0.128218
+
+Total amount of loadings for treatment group.
+```{r}
+phase1_people %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  drop_na(Amount) %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+Total amount of loadings for control group.
+```{r}
+phase1_people %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  drop_na(Amount) %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 16.99034	- 27.44612	= -10.45578
+
+# Ridership after phase1.
+```{r}
+post_p1_LIFT_boardings <- LIFT_boardings %>% 
+  filter(week >= "2019-07-01")
+
+phase1_boardings <- inner_join(phase1_people, post_p1_LIFT_boardings, by = "card_id")
+```
+
+week.x = date of loading.
+week.y = date of boarding.
+
+Treatment
+```{r}
+phase1_boardings %>% 
+  filter(week.x >= "2019-07-01") %>% 
+  filter(week.y >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+Control
+```{r}
+phase1_boardings %>% 
+  filter(week.x >= "2019-07-01") %>% 
+  filter(week.y >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 10.77278 - 7.793805	= 2.97898
+
+
+# 3 CSO CardIssuingAgency
+```{r}
+phase1_target_agencies <- registry_sales %>% 
+  filter(Study_Card != "Subsidized Annual Pass") %>% 
+  filter(Age > 18) %>% 
+  filter(DateIssuedToCardHolder <= "2019-07-01" & DateIssuedToCardHolder > "2019-03-01") %>% 
+  filter(CardIssuingAgency %in% c("CSO Auburn", "CSO Capitol Hill", "CSO White Center") )
+```
+
+```{r}
+phase1_target_agencies %>% 
+  count(Study_Card)
+```
+
+Number of loadings for people in the treatment group
+```{r}
+phase1_target_agencies %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  drop_na(loadings) %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+Number of loadings for people in the control group
+```{r}
+phase1_target_agencies %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  drop_na(loadings) %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+
+ATE = E[Loading | Treated] - E[Loading | Control] = 1.275362	- 1.147144	= 0.128218
+
+Total amount of loadings for treatment group.
+```{r}
+phase1_target_agencies %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  drop_na(Amount) %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+Total amount of loadings for control group.
+```{r}
+phase1_target_agencies %>% 
+  filter(week >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  drop_na(Amount) %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 16.99034	- 27.44612	= -10.45578
+
+# Ridership after phase1.
+```{r}
+post_p1_LIFT_boardings <- LIFT_boardings %>% 
+  filter(week >= "2019-07-01")
+
+phase1_boardings_ta <- inner_join(phase1_target_agencies, post_p1_LIFT_boardings, by = "card_id")
+```
+
+week.x = date of loading.
+week.y = date of boarding.
+
+Treatment
+```{r}
+phase1_boardings_ta %>% 
+  filter(week.x >= "2019-07-01") %>% 
+  filter(week.y >= "2019-07-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+Control
+```{r}
+phase1_boardings_ta %>% 
+  filter(week.x >= "2019-07-01") %>% 
+  filter(week.y >= "2019-07-01") %>% 
+  filter(Study_Card == "None") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 10.77661 - 6.968099	= 3.808511
+
+# Distribution of Race
+```{r}
+p1t_race <- phase1_target_agencies %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  count(RaceDesc) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Passport")
+
+p1c_race <- phase1_target_agencies %>% 
+  filter(Study_Card == "None") %>% 
+  count(RaceDesc) %>% 
+  mutate(freq = n / sum(n)) %>% 
+  mutate(treatment = "Control")
+
+p1_race <- bind_rows(p1t_race, p1c_race)
+```
+
+```{r}
+p1_race %>% 
+  ggplot(data = ., aes(x = RaceDesc, y= freq, fill= treatment)) +
+  geom_bar(stat="identity", position = position_dodge())+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Lower proportions of Asian individuals got the treatment while higher proportions of hispanics and AAs got the treatment.
+
+
+# Divide data into treatment groups
+
+initial load = 10, public health (0), some people declined to participate in the study.
+
+how to map census tract to FIPS?
+
+
+```{r}
+LIFT_registry %>% 
+  select(Study_Card, Initial_Load) %>% 
+  unique()
+```
+
+
+# Subsidized Annual Pass: given 1 year free.
+
+```{r}
+LIFT_registry %>% 
+  filter(Study_Card == "Subsidized Annual Pass") # after Oct. 2020
+LIFT_registry %>% 
+  filter(Study_Card == "Phase1 Treatment") # late March - July 2019
+LIFT_registry %>% 
+  filter(Study_Card == "Phase2 Treatment") # dec - March 2020
+```
+
+# Join LIFT_registry with LIFT_sales
+```{r}
+LIFT_registry %>% 
+  filter(Study_Card == "Phase1 Treatment")
+
+registry_sales <- merge(x = LIFT_registry, y = LIFT_sales, by = "card_id", all = TRUE)
+```
+
+```{r}
+registry_sales %>% 
+  filter(Initial_Load == "Passport") %>% 
+  summarize(avg_Amt = mean(Amount))
+```
+
+
+```{r}
+registry_sales %>% 
+  filter(Initial_Load %in% c(NA, 10, 15, 20, 30, 50)) %>% 
+  select(Amount) %>% 
+  mutate(avg_Amt = mean(Amount))
+```
+
+
+```{r}
+LIFT_registry %>% 
+  group_by(`Initial Load`) %>% 
+  count()
+```
+Treated: 822
+
+
+```{r}
+LIFT_registry %>% 
+  ggplot(., mapping=aes(x = `Initial Load`)) +
+  geom_bar(fill="dark green") +
+  theme_bw() +
+  labs(title = "Treatment Groups")
+```
+
+# See whether the covariates in all treatment groups are balanced.
+
+```{r}
+LIFT_registry %>% 
+  filter(`Study Card` %in% c('Phase1 Treatment', "Phase2 Treatment")) %>% 
+  ggplot(., mapping=aes(x = `Study Card`)) +
+  geom_bar() +
+  theme_bw()
+```
+
+
+# Distribution of languages spoken
+```{r}
+LIFT_registry %>% 
+  filter(Initial_Load %in% c(NA, 10, 15, 20, 30, 50)) %>% 
+  ggplot(data = ., aes(x = LanguageSpoken)) +
+  geom_bar(aes(y=..count../sum(..count..)), fill="dark blue")+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = LanguageSpoken)) +
+  geom_bar(aes(y=..count../sum(..count..)), fill="dark blue")+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Higher proportions of Amharic and Chinese found in the control. Proportion of English is around the same.
+
+# Distribution of Race.
+
+```{r}
+LIFT_registry %>%
+  filter(Initial_Load %in% c(NA,10,15,20,30,50)) %>% 
+  ggplot(., aes(x = RaceDesc)) +
+  geom_bar(aes(y=..count../sum(..count..)))+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = RaceDesc)) +
+  geom_bar(aes(y=..count../sum(..count..)))+
+  theme_bw()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+Control: Larger proportion of Asians and Hispanics.
+Treatment: Larger proportion of African Americans.
+
+# Distribution of Age.
+
+```{r}
+LIFT_registry %>%
+  filter(Initial_Load %in% c(NA,10,15,20,30,50)) %>% 
+  ggplot(., aes(x = Age)) +
+  geom_histogram(fill="dark green") +
+  theme_bw()
+LIFT_registry %>% 
+  filter(Initial_Load %in% c("Passport")) %>% 
+  ggplot(data = ., aes(x = Age)) +
+  geom_histogram(fill = "dark green") +
+  theme_bw()
+```
+A high proportion of 20 year olds were given the passport data.
+
+
+
+
+# ATE Estimation:
+(Search for the presence of imbalance in causal inference.)
+
+```{r}
+library(usethis)
+
+use_git_config(user.name = "JennyHuang19",
+               user.email = "yjh3@duke.edu")
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
