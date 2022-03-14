@@ -1,0 +1,228 @@
+---
+title: "Fare_Subsidies_TargetAgencies Matching"
+author: "Jenny Yijian Huang"
+date: "3/12/2022"
+output: html_document
+---
+
+phase1_target_agencies: 3 agencies which gave out passports as well as controls ($10).
+
+https://cran.r-project.org/web/packages/MatchIt/vignettes/MatchIt.html#check-initial-imbalance
+```{r}
+phase1_target_agencies <- LIFT_registry %>% 
+  filter(Study_Card != "Subsidized Annual Pass") %>% 
+  filter(Age >= 18) %>% 
+  filter(DateIssuedToCardHolder >= "2019-03-01" & DateIssuedToCardHolder <= "2019-07-01") %>% 
+  filter(CardIssuingAgency %in% c("CSO Auburn", "CSO Capitol Hill", "CSO White Center") )
+```
+```{r}
+phase1_target_agencies %>% 
+  count(treatment)
+```
+
+
+```{r}
+LIFT_sales_after_phase1 <-LIFT_sales %>% 
+  filter(week >= "2019-09-01")
+LIFT_boardings_after_phase1 <- LIFT_boardings %>% 
+  filter(week >= "2019-09-01")
+```
+
+```{r}
+# 3/13 changed analysis to include all people who didn't load (loadings = 0)
+# left join registry data with loadings (after phase 1) data
+phase1_TA_loadings <- merge(x = phase1_target_agencies, y = LIFT_sales_after_phase1, by = "card_id",all.x=TRUE)
+```
+```{r}
+# replace NA with 0 for loadings and amount.
+phase1_TA_loadings <- phase1_TA_loadings %>% 
+  mutate_if(is.numeric, ~replace(., is.na(.), 0))
+```
+
+32 (32/185 = .17) unique individuals in the treatment group loaded after phase 1 ended.
+240 (240/1183 = .20) from control.
+
+```{r}
+phase1_TA_loadings %>% 
+  filter(treatment == 1) %>% 
+  distinct(card_id) # 32 (32/185 = .17) unique individuals in the treatment group loaded after phase 1 ended.
+
+phase1_TA_loadings %>% 
+  filter(treatment == 0) %>% 
+  distinct(card_id) # 240 (240/1183 = .20) from control.
+```
+
+Number of loadings for people in the treatment group
+```{r}
+phase1_TA_loadings %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+Number of loadings for people in the control group
+```{r}
+phase1_TA_loadings %>% 
+  filter(Study_Card == "None") %>% 
+  summarize( min = min(loadings), max = max(loadings), med = median(loadings), mean = mean(loadings))
+```
+
+
+ATE = E[Loading | Treated] - E[Loading | Control] = 1.275362	- 1.147144	= 0.128218
+
+Total amount of loadings for treatment group.
+```{r}
+phase1_TA_loadings %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+Total amount of loadings for control group.
+```{r}
+phase1_TA_loadings %>% 
+  filter(Study_Card == "None") %>% 
+  summarize( min = min(Amount), max = max(Amount), med = median(Amount), mean = mean(Amount))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 16.99034	- 27.44612	= -10.45578
+
+# Ridership after phase1.
+```{r}
+post_p1_LIFT_boardings <- LIFT_boardings %>% 
+  filter(week >= "2019-09-01")
+
+phase1_boardings <- inner_join(phase1_target_agencies, post_p1_LIFT_boardings, by = "card_id")
+```
+
+week.x = date of loading.
+week.y = date of boarding.
+
+Treatment
+```{r}
+phase1_boardings %>% 
+  filter(week >= "2019-09-01") %>% 
+  filter(Study_Card == "Phase1 Treatment") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+Control
+```{r}
+phase1_boardings %>% 
+  filter(week >= "2019-09-01") %>% 
+  filter(Study_Card == "None") %>% 
+  mutate(`King County Metro` = replace_na(`King County Metro` , 0)) %>% 
+  summarize( min = min(`King County Metro`), max = max(`King County Metro`), med = median(`King County Metro`), mean = mean(`King County Metro`))
+```
+
+ATE = E[Loading Amount | Treated] - E[Loading Amount | Control] = 10.77278 - 7.793805	= 2.97898
+
+# (note resource on 5.1.3: Subclassification https://mixtape.scunning.com/matching-and-subclassification.html?panelset=r-code&panelset1=r-code2#subclassification-exercise-titanic-mathrmdata-set)
+
+
+```{r}
+# install.packages("MatchIt")
+library(MatchIt)
+```
+
+```{r}
+# create numeric column for treatment 0/1
+phase1_target_agencies <- phase1_target_agencies %>% 
+  mutate(treatment = ifelse(Study_Card == "None", 0, 1))
+# replace NA values with nones.
+phase1_target_agencies <- mutate_at(phase1_target_agencies, c("Age", "RaceDesc", "LanguageSpoken"), ~replace(., is.na(.), "None"))
+```
+
+```{r}
+# join group by count join.
+phase1_aggregate_loadings <- phase1_TA_loadings %>%  # loadings by people in phase1_target_agencies
+  group_by(card_id) %>% 
+  summarise(num_transactions = n(), total_loading = sum(loadings), total_Amount = sum(Amount))
+
+phase_1_loadings_df <- inner_join(phase1_target_agencies, phase1_aggregate_loadings, by = "card_id")
+```
+
+Std. Mean Diff. = We can see severe imbalances as measured by the standardized mean differences (in age etc.)
+
+1. Propensity Score Matching (nearest neighbor)
+One by one, each treated unit is paired with an available control unit that has the closest propensity score to it.
+Any remaining control units are left unmatched and excluded from further analysis.
+
+unmatched data std. Mean diff.
+matched data std. Mean diff.
+```{r}
+library(MatchIt)
+```
+
+```{r}
+m.out1 <- matchit(treatment ~ Age + RaceDesc + LanguageSpoken + CardIssuingAgency, data = phase_1_loadings_df,
+                 method = "nearest", distance = "glm")
+
+summary(m.out1)
+```
+
+```{r}
+plot(summary(m.out1)) # changed text size
+```
+ATE Estimation: columns (number of times that individual loaded, amount purchased, number of times that individual boarded)
+
+```{r}
+plot(m.out1, type = "qq", interactive = FALSE,
+     which.xs = c("Age", "RaceDesc", "LanguageSpoken", "CardIssuingAgency"))
+```
+
+(DISCUSS W TEAM) Points far from the solid diagonal line are the areas of the covariate distributions that differ between the treatment groups. Variables such as CardIssuing Agency and RaceWhite) appear to have improved balance after matching
+
+```{r}
+# creating a data set that has been matched on.
+m.data1 <- match.data(m.out1)
+
+m.data1
+```
+distance: Propensity score
+- estimated with logistic regression
+weights (the computed matching weights)
+subclass (matching pair membership)
+match.matrix (which control units are matched to each treated unit).
+
+We can now estimate a treatment effect in this dataset using the standard regression functions in R, like lm() or glm(), being sure to include the matching weights (stored in the weights variable of the match.data() output) in the estimation.
+
+```{r}
+# install.packages("lmtest")
+# install.packages("sandwich")
+library("lmtest") #coeftest
+library("sandwich") #vcovCL
+
+fit1 <- lm(num_transactions ~ treatment + Age + RaceDesc + LanguageSpoken + CardIssuingAgency, data = m.data1, weights = weights)
+
+coeftest(fit1, vcov. = vcovCL, cluster = ~subclass) # The coefficient on treat is the estimated ATT. The other coefficients and tests should not be interpreted or reported. 
+```
+-1.0676880  0.6729013 -1.5867  0.11362 
+
+The estimated effect was -1.0676880 (SE = 0.6729013 p= 0.11362), indicating that the average effect of the treatment for those who received it is to decrease number of purchases, though not by a significant amount.
+```{r}
+fit2 <- lm(total_loading ~ treatment + Age + RaceDesc + LanguageSpoken + CardIssuingAgency, data = m.data1, weights = weights)
+
+
+coeftest(fit2, vcov. = vcovCL, cluster = ~subclass) # The coefficient on treat is the estimated ATT. The other coefficients and tests should not be interpreted or reported. 
+```
+
+The estimated effect was -1.353969 (SE = 0.886639 p = 0.12778), indicating that the average effect of the treatment for those who received it is to decrease total loading (purchases), though not by a significant amount.
+
+```{r}
+fit3 <- lm(total_Amount ~ treatment + Age + RaceDesc + LanguageSpoken + CardIssuingAgency, data = m.data1, weights = weights)
+
+coeftest(fit3, vcov. = vcovCL, cluster = ~subclass) # The coefficient on treat is the estimated ATT. The other coefficients and tests should not be interpreted or reported. 
+```
+ -35.149830  15.555174 -2.2597  0.02455 * 
+
+The estimated effect was -35.149830 (SE = 15.555174 p = 0.02455 *), indicating that the average effect of the treatment for those who received it is to decrease total amount of passes purchased.
+
+# coarsened exact matching
+```{r}
+?method_cem # coarsened exact matching
+
+m.out2 <- matchit(treatment ~ RaceDesc + LanguageSpoken + CardIssuingAgency, data = phase_1_loadings_df,
+                 method = "cem", distance = "glm", cutpoints = list(Age = c(30,40,50,60,70)))
+
+summary(m.out2, un = FALSE)
+```
