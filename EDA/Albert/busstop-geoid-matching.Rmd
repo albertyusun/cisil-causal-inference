@@ -1,0 +1,62 @@
+---
+title: "Matching Bus Stops to GEOID"
+author: "Albert Sun"
+date: "3/18/2022"
+output: html_document
+---
+
+This is code borrowed from Christoph Kurz's tutorial. 
+
+```{r}
+library(tidyverse)
+library(sf)
+library(sfheaders)
+```
+
+read shapefile and transform coordinates
+
+```{r}
+shapename <- read_sf('../../../data/KCM_Stops_Data/kcm_stops.shp')
+stops <- cbind(shapename, st_transform(x = shapename, crs = 4326) 
+               %>% st_coordinates)
+
+head(stops)
+```
+
+```{r then load the census tract shape files for King County using the tigris package}
+kctracts <- tigris::tracts(state = 53, county = 033, cb = FALSE, year = 2020)
+kctracts
+```
+
+```{r convert the data}
+stops_sf <- st_as_sf(data.frame(x = stops$X, 
+                                y = stops$Y,
+                                stop_id = stops$OBJECTID), 
+                     coords = c('x', 'y'), 
+                     crs = st_crs(kctracts))
+
+stops_sf
+```
+
+create a new data frame that matches the bus stop data to the census tract
+
+```{r}
+stops_census <- stops_sf %>% 
+  mutate(intersection = as.integer(st_intersects(geometry, kctracts)),
+         GEOID = if_else(is.na(intersection), '', kctracts$GEOID[intersection]))
+```
+
+
+```{r now every bus stop has a GEOID linked to it}
+head(stops_census)
+```
+
+```{r}
+df_stops_census <- as_Spatial(stops_census)
+df_stops_census
+```
+
+```{r}
+write.csv(df_stops_census, "../../../data/bus_stop_geoid_matching.csv")
+```
+
