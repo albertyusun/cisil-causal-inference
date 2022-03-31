@@ -16,6 +16,18 @@ library(tidyverse)
 ```
 
 ```{r}
+crosswalk <- read_csv('id_studycard_stage.csv')
+```
+
+
+```{r}
+crosswalk <- read_csv('id_studycard_stage.csv')
+crosswalk %>%
+  count(study_card, stage)
+```
+
+
+```{r}
 # create a dataset
 specie <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) )
 condition <- rep(c("normal" , "stress" , "Nitrogen") , 4)
@@ -23,10 +35,6 @@ value <- abs(rnorm(12 , 0 , 15))
 data <- data.frame(specie,condition,value)
 
 data
-```
-
-```{r}
-read_csv('id_studycard_stage.csv')
 ```
 
 
