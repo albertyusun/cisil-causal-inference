@@ -1,0 +1,39 @@
+---
+title: "Visualize num enrolled q2"
+author: "Albert Sun"
+date: "3/30/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+ # library
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+# create a dataset
+specie <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) )
+condition <- rep(c("normal" , "stress" , "Nitrogen") , 4)
+value <- abs(rnorm(12 , 0 , 15))
+data <- data.frame(specie,condition,value)
+
+data
+```
+
+```{r}
+read_csv('id_studycard_stage.csv')
+```
+
+
+```{r}
+# Stacked + percent
+ggplot(data, aes(fill=condition, y=value, x=specie)) + 
+    geom_bar(position="fill", stat="identity")
+```
+
+
