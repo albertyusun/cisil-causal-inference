@@ -16,32 +16,122 @@ library(tidyverse)
 ```
 
 ```{r}
-crosswalk <- read_csv('id_studycard_stage.csv')
+crosswalk <- read_csv('/Users/albertsun/Projects/data/initialload_stage.csv')
+
+names(crosswalk) <- c('id', 'load', 'stage')
+
+crosswalk<- crosswalk %>% 
+  replace_na(list(load = 'Uncategorized')) %>% 
+  filter(load != "Uncategorized") %>%
+  filter(load != "Misc. Pass") 
+```
+
+```{r}
+crosswalk <- crosswalk %>%
+    mutate(load = replace(load, load =="Subsidized Annual Pass", "SAP")) 
+```
+
+```{r}
+num_cards <- c('10', '15', '20', '30', '50', '70')
+
+crosswalk <- crosswalk %>% 
+  mutate(load = replace(load, is.element(load, num_cards), "Cash Incentive")) 
 ```
 
 
 ```{r}
-crosswalk <- read_csv('id_studycard_stage.csv')
 crosswalk %>%
-  count(study_card, stage)
+  filter(load == "Misc. Pass") 
 ```
 
 
 ```{r}
-# create a dataset
-specie <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) )
-condition <- rep(c("normal" , "stress" , "Nitrogen") , 4)
-value <- abs(rnorm(12 , 0 , 15))
-data <- data.frame(specie,condition,value)
-
-data
+crosswalk %>%
+  group_by(load, stage) %>%
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  mutate(stage = as.character(stage)) %>%
+  ggplot(aes(fill=stage, y=n, x=load)) + 
+    geom_bar(position="fill", stat="identity")  + theme_classic()
+  
 ```
+
+
+
+```{r}
+counts <- crosswalk %>% count(load, stage) 
+counts%>%
+  mutate_all(~replace(., is.na(.), 0)) %>% 
+    mutate(load = replace(load, load =="Subsidized Annual Pass", "SAP"))
+
+counts <- counts %>%
+  mutate(stage = as.factor(stage)) %>%
+  mutate(load = replace(load, load =="Subsidized Annual Pass", "SAP"))
+counts
+
+```
+
+
 
 
 ```{r}
 # Stacked + percent
-ggplot(data, aes(fill=condition, y=value, x=specie)) + 
-    geom_bar(position="fill", stat="identity")
+ggplot(counts, aes(fill=stage, y=n, x=load)) + 
+  geom_bar(position="fill", stat="identity") + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1))
 ```
+
+# Try it with just reenrolled at least once
+
+```{r}
+countsdual
+```
+
+```{r}
+countsdual
+```
+
+```{r}
+crosswalk$stagedual <- ifelse(crosswalk$stage >=2, "Yes", "No")
+countsdual <- crosswalk %>% count(load, stagedual) 
+
+countsdual <- countsdual %>%
+  mutate(load = as.factor(load)) 
+
+countsdual$load <- factor(countsdual$load, levels=c('SAP', 'Monthly Pass', 'Cash Incentive', 'Passport', 'Uncategorized'))
+
+brks <- c(0, 0.25, 0.5, 0.75, 1)
+
+
+# #003F5C, #58508D, #BC5090, #FF5361, #FFA600
+ggplot(countsdual, aes(fill=stagedual, y=n, x=load)) + 
+    geom_bar(position="fill", stat="identity") + 
+  theme_minimal(base_size = 18) +
+  scale_y_continuous(breaks = brks, labels = scales::percent(brks))+
+  theme(axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) + 
+  scale_fill_manual("Reenrolled?", values = c("No" = "#003F5C", "Yes" = "#FFA600")) +
+  labs(title="Subsized Annual Pass Recipients \nare Most Likely to Reenroll",
+       y="", x="")
+
+ggsave("/Users/albertsun/Projects/artifacts/num_enrolled_plot2.pdf", height = 6)
+
+
+# !label plot
+# !change y to percent
+# !change x axis to slanted
+# !change number values to "cash incentive"
+# !fix reorder
+# !add title
+# !remove uncategorized column
+# !remove misc pass
+# !change colors
+# !change legend to reenrolled
+```
+
 
 
