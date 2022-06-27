@@ -9,5 +9,5 @@ Duke University Data Science Team: Albert Sun, Jenny Huang, Gaurav Rajesh Parikh
 1. Data - Folder containing stored data/intermediate data artifacts we created.
 3. Data Cleaning - Folder containing data cleaning scripts/notebooks.
 4. EDA - Code to conduct Exploratory Data Analysis
-5. Fare Reinstatement Modeling - Modeling files for Q1 (Synthetic Controls Method)
-6. Fare Subsidies Modeling - Modeling files for Q2 (Almost Exactly Matching Method)
+5. Q1 Fare Reinstatement Modeling - Modeling files for Q1 (Synthetic Controls Method)
+6. Q2 Fare Subsidies Modeling - Modeling files for Q2 (Almost Exactly Matching Method)
